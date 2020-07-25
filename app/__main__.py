@@ -21,7 +21,7 @@ title_font = ImageFont.truetype("./assets/TitleFont.ttf", 60)
 MAX_RENDERED_W = 1200
 
 
-def render_title(image_arr, name, x, y, max_w, h):
+def render_title_font(image_arr, name, x, y, max_w, h, centered=False):
     if max_w + x > image_arr.shape[1]:
         max_w = image_arr.shape[1] - x
     # render @2x and resize down to simulate font antialiasing
@@ -29,6 +29,8 @@ def render_title(image_arr, name, x, y, max_w, h):
     w = min(MAX_RENDERED_W, rendered_size[0] / 2)
     target_w = min(w, max_w)
     target_h = int(h * 1.0 * target_w / w)
+    if centered:
+        x = x - target_w / 2
     print(w, target_w, target_h)
     img = Image.new("RGBA", (w * 2, h * 2), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
@@ -91,7 +93,7 @@ def hello():
 
     # add power box if there is a power / toughness
     generated_image = np.copy(frame)
-    if power is not None and color is not None:
+    if power is not None and toughness is not None:
         powerdims = powerbox.shape
         generated_image[-powerdims[0] :, -powerdims[1] :, -powerdims[2] :] = powerbox
 
@@ -99,7 +101,16 @@ def hello():
     tint_image(generated_image, color)
 
     # render title
-    render_title(generated_image, name, 60, 68, 600, 100)
+    render_title_font(generated_image, name, 60, 68, 600, 50)
+
+    # render typeline
+    render_title_font(generated_image, typeline, 60, 600, 600, 50)
+
+    if power is not None and toughness is not None:
+        power_string = power + "/" + toughness
+        render_title_font(
+            generated_image, power_string, 640, 945, 500, 50, centered=True
+        )
 
     # encode the response and add it
     img = Image.fromarray(generated_image, "RGBA")
