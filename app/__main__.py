@@ -6,10 +6,22 @@ from PIL import Image, ImageFont, ImageDraw
 import numpy as np
 from matplotlib.colors import rgb_to_hsv, hsv_to_rgb
 import io
+import os
 
 # import matplotlib.pyplot as plt
 # plt.imshow(color_mask)
 # plt.show()
+
+
+def load_images_dir(basedir):
+    images = dict()
+    for path in os.listdir(basedir):
+        if path.endswith(".png"):
+            base, ext = os.path.splitext(path)
+            images[base.upper()] = np.array(Image.open(os.path.join(basedir, path)))
+
+    return images
+
 
 app = Flask(__name__)
 frame = np.array(Image.open("./assets/frame.png"))
@@ -20,9 +32,53 @@ color_mask = (
 title_font = ImageFont.truetype("./assets/TitleFont.ttf", 60)
 body_font = ImageFont.truetype("./assets/BodyFont.ttf", 30)
 body_font_italic = ImageFont.truetype("./assets/BodyFont.ttf", 30)
+mana_symbols_dict = load_images_dir("./assets/mana")
+MANA_SYMBOL_SIZE = mana_symbols_dict[mana_symbols_dict.keys()[0]].shape[0]
+MANA_SYMBOL_PADDING = 6
 
 # The maximum length of the render surface for the title/typeline/powerbox
 MAX_RENDERED_TITLE_W = 1200
+
+
+def pop_symbol(possible_mana_str):
+    if len(possible_mana_str) < 3:
+        return (None, possible_mana_str)
+
+    if possible_mana_str[0] == "{":
+        end_idx = possible_mana_str.find("}")
+        if end_idx == -1:
+            return (None, possible_mana_str)
+
+        return (possible_mana_str[1:end_idx], possible_mana_str[end_idx + 1 :])
+
+    return (None, possible_mana_str)
+
+
+def render_mana_symbols(mana_symbol_string):
+    symbols = []
+    symbol, mana_symbol_string = pop_symbol(mana_symbol_string)
+    while symbol:
+        symbols.append(symbol)
+        symbol, mana_symbol_string = pop_symbol(mana_symbol_string)
+
+    mana_texture = np.zeros(
+        (MANA_SYMBOL_SIZE, len(symbols) * (MANA_SYMBOL_SIZE + MANA_SYMBOL_PADDING), 4,),
+        dtype=int,
+    )
+    for i, symbol_name in enumerate(symbols):
+        x = i * (MANA_SYMBOL_SIZE + MANA_SYMBOL_PADDING)
+        lookup_key = symbol_name.upper().replace("/", "")
+        symbol_img = (
+            mana_symbols_dict[lookup_key]
+            if lookup_key in mana_symbols_dict
+            else mana_symbols_dict["UNKNOWN"]
+        )
+        print("AHAHAHHAHA", lookup_key, type(symbol_img))
+        mana_texture[0:, x : x + MANA_SYMBOL_SIZE, :] = symbol_img[
+            0:MANA_SYMBOL_SIZE, 0:MANA_SYMBOL_SIZE, :
+        ]
+
+    return mana_texture
 
 
 def split_lines_for_font(font, text, max_width):
@@ -113,7 +169,7 @@ def tint_image(image, color):
         return image
     elif color == "b":
         image[:, :, :3][color_mask] = image[:, :, :3][color_mask] * np.array(
-            [[[0.65, 0.13, 0.65]]]
+            [[[0.33, 0.23, 0.33]]]
         )
         return image
     elif color == "r":
@@ -126,10 +182,16 @@ def tint_image(image, color):
             [[[0.11, 0.60, 0.05]]]
         )
         return image
+    elif color == "multi":
+        image[:, :, :3][color_mask] = image[:, :, :3][color_mask] * np.array(
+            [[[0.96, 0.87, 0.43]]]
+        )
+        return image
     elif color == "c":
-        colors = rgb_to_hsv(image[:, :, :3])
-        colors[:, :, 1] = 0
-        image[:, :, :3][color_mask] = hsv_to_rgb[colors]
+        colors = rgb_to_hsv(image[color_mask][:, :3])
+        colors[:, 1] = 0
+        shape = (image.shape[0], image.shape[1], 3)
+        image[color_mask, :3] = hsv_to_rgb(colors)
         return image
     return image
 
@@ -154,8 +216,21 @@ def hello():
     # tint the frame
     tint_image(generated_image, color)
 
-    # render title
-    render_title_font(generated_image, name, 60, 68, 600, 50)
+    if len(cost):
+        # render mana cost and offset title
+        mana_texture = render_mana_symbols(cost)
+        mana_texture_width = mana_texture.shape[1]
+        composite_alpha(
+            mana_texture,
+            generated_image,
+            generated_image.shape[1] - 50 - mana_texture_width,  # x
+            60,  # y
+        )
+
+        render_title_font(generated_image, name, 60, 68, 600 - mana_texture_width, 50)
+    else:
+        # render title
+        render_title_font(generated_image, name, 60, 68, 600, 50)
 
     # render typeline
     render_title_font(generated_image, typeline, 60, 600, 600, 50)
