@@ -82,7 +82,7 @@ def render_mana_symbols(mana_symbol_string):
 
 
 def split_lines_for_font(font, text, max_width):
-    words = text.split(" ")
+    words = [x for x in text.replace("\n", " \n ").split(" ") if len(x)]
     lines = []
     current_line = words[0]
     for word in words[1:]:
@@ -100,16 +100,19 @@ def split_lines_for_font(font, text, max_width):
         else:
             current_line = next_line
 
-    if len(current_line):
+    print(lines, current_line)
+
+    if len(current_line) > 0:
         lines.append(current_line)
 
-    return lines
+    return [line.replace("\n", "") for line in lines if line != "\n"]
 
 
 def render_body_text(image_arr, text, x, y, max_width, max_height):
     font = body_font
     line_height = 30
     lines = split_lines_for_font(body_font, text, max_width)
+    print(lines)
 
     rendered_text = Image.new(
         "RGBA", (max_width, line_height * len(lines)), (0, 0, 0, 0)
@@ -132,6 +135,9 @@ def prep_body_text(text):
 
 def composite_alpha(source, target, x, y):
     (h, w, d) = source.shape
+    h = min(target.shape[0] - y, h)
+    w = min(target.shape[1] - x, w)
+    source = source[:h, :w, :]
     alpha = (source[:, :, 3] / 255.0).reshape((source.shape[0], source.shape[1], 1))
     # if target_h != h:
     #     y += (h - target_h) /
