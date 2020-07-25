@@ -164,7 +164,7 @@ def tint_image(image, color):
         return image
     elif color == "u":
         image[:, :, :3][color_mask] = image[:, :, :3][color_mask] * np.array(
-            [[[0.37, 0.32, 0.95]]]
+            [[[0.43, 0.67, 0.97]]]
         )
         return image
     elif color == "b":
@@ -179,7 +179,7 @@ def tint_image(image, color):
         return image
     elif color == "g":
         image[:, :, :3][color_mask] = image[:, :, :3][color_mask] * np.array(
-            [[[0.11, 0.60, 0.05]]]
+            [[[0.43, 0.80, 0.34]]]
         )
         return image
     elif color == "multi":
@@ -227,13 +227,13 @@ def hello():
             60,  # y
         )
 
-        render_title_font(generated_image, name, 60, 68, 600 - mana_texture_width, 50)
+        render_title_font(generated_image, name, 60, 68, 620 - mana_texture_width, 50)
     else:
         # render title
-        render_title_font(generated_image, name, 60, 68, 600, 50)
+        render_title_font(generated_image, name, 60, 68, 620, 50)
 
     # render typeline
-    render_title_font(generated_image, typeline, 60, 600, 600, 50)
+    render_title_font(generated_image, typeline, 60, 600, 620, 50)
 
     # render p/t box
     if power is not None and toughness is not None:
