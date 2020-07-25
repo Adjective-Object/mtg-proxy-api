@@ -29,6 +29,7 @@ powerbox = np.array(Image.open("./assets/powerbox.png"))
 color_mask = (
     np.array(Image.open("./assets/color_mask.png"))[:, :, 0] == 255
 )  # import matplotlib.pyplot as plt
+color_mask_inverse = color_mask == False
 title_font = ImageFont.truetype("./assets/TitleFont.ttf", 60)
 body_font = ImageFont.truetype("./assets/BodyFont.ttf", 30)
 body_font_italic = ImageFont.truetype("./assets/BodyFont.ttf", 30)
@@ -172,25 +173,40 @@ def tint_image(image, color):
         image[:, :, :3][color_mask] = image[:, :, :3][color_mask] * np.array(
             [[[0.43, 0.67, 0.97]]]
         )
+        image[:, :, :3][color_mask_inverse] = image[:, :, :3][
+            color_mask_inverse
+        ] * np.array([[[0.9, 0.9, 1]]])
         return image
     elif color == "b":
         image[:, :, :3][color_mask] = image[:, :, :3][color_mask] * np.array(
-            [[[0.33, 0.23, 0.33]]]
+            [[[0.3, 0.3, 0.3]]]
         )
+        image[:, :, :3][color_mask_inverse] = image[:, :, :3][
+            color_mask_inverse
+        ] * np.array([[[0.9, 0.9, 0.9]]])
         return image
     elif color == "r":
         image[:, :, :3][color_mask] = image[:, :, :3][color_mask] * np.array(
             [[[0.96, 0.41, 0.35]]]
         )
+        image[:, :, :3][color_mask_inverse] = image[:, :, :3][
+            color_mask_inverse
+        ] * np.array([[[1, 0.9, 0.9]]])
         return image
     elif color == "g":
         image[:, :, :3][color_mask] = image[:, :, :3][color_mask] * np.array(
             [[[0.43, 0.80, 0.34]]]
         )
+        image[:, :, :3][color_mask_inverse] = image[:, :, :3][
+            color_mask_inverse
+        ] * np.array([[[0.9, 1, 0.9]]])
         return image
     elif color == "multi":
         image[:, :, :3][color_mask] = image[:, :, :3][color_mask] * np.array(
-            [[[0.96, 0.87, 0.43]]]
+            [[[0.97, 0.93, 0.6]]]
+        )
+        image[:, :, :3][color_mask] = image[:, :, :3][color_mask] * np.array(
+            [[[1, 1, 0.9]]]
         )
         return image
     elif color == "c":
