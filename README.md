@@ -1,5 +1,7 @@
 # mtg-proxy-api
 
+## Setup
+
 An API that will generate easy MTG proxies for you.
 
 ```sh
@@ -7,6 +9,12 @@ An API that will generate easy MTG proxies for you.
 pipenv install
 FLASK_ENV=development pipenv run python ./app/__main__.py
 ```
+
+## Asset Sources
+
+Assets are light edits of outputs from [mtg-cardframes](https://github.com/Adjective-Object/mtg-cardframes)
+
+## Updating Mana Symbol Assets
 
 get mana symbols
 On https://mtg.gamepedia.com/Category:Mana_symbols, run
