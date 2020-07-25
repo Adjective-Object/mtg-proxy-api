@@ -1,17 +1,50 @@
 from flask import Flask, request, send_file
-from PIL import Image
+from PIL import Image, ImageFont, ImageDraw
 import numpy as np
 from matplotlib.colors import rgb_to_hsv, hsv_to_rgb
-
-# import matplotlib.pyplot as plt
 import io
+
+import matplotlib.pyplot as plt
 
 app = Flask(__name__)
 frame = np.array(Image.open("./assets/frame.png"))
 powerbox = np.array(Image.open("./assets/powerbox.png"))
-color_mask = np.array(Image.open("./assets/color_mask.png"))[:, :, 0] == 255
+color_mask = (
+    np.array(Image.open("./assets/color_mask.png"))[:, :, 0] == 255
+)  # import matplotlib.pyplot as plt
+title_font = ImageFont.truetype("./assets/TitleFont.ttf", 60)
+
 # plt.imshow(color_mask)
 # plt.show()
+
+
+MAX_RENDERED_W = 1200
+
+
+def render_title(image_arr, name, x, y, max_w, h):
+    if max_w + x > image_arr.shape[1]:
+        max_w = image_arr.shape[1] - x
+    # render @2x and resize down to simulate font antialiasing
+    rendered_size = title_font.getsize(name)
+    w = min(MAX_RENDERED_W, rendered_size[0] / 2)
+    target_w = min(w, max_w)
+    target_h = int(h * 1.0 * target_w / w)
+    print(w, target_w, target_h)
+    img = Image.new("RGBA", (w * 2, h * 2), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    draw.text((0, 0), name, (0, 0, 0), font=title_font)
+    img = img.resize((target_w, target_h), Image.ANTIALIAS)
+    print(img.width, img.height, ":", target_w, target_h)
+    rendered_text = np.array(img)
+    # alpha blend the text onto the base image
+    alpha = (rendered_text[:, :, 3] / 255.0).reshape(
+        (rendered_text.shape[0], rendered_text.shape[1], 1)
+    )
+    # if target_h != h:
+    #     y += (h - target_h) /
+    image_arr[y : y + target_h, x : x + target_w, :] = (rendered_text * (alpha)) + (
+        image_arr[y : y + target_h, x : x + target_w, :] * (1 - alpha)
+    )
 
 
 def tint_image(image, color):
@@ -64,6 +97,9 @@ def hello():
 
     # tint the frame
     tint_image(generated_image, color)
+
+    # render title
+    render_title(generated_image, name, 60, 68, 600, 100)
 
     # encode the response and add it
     img = Image.fromarray(generated_image, "RGBA")
