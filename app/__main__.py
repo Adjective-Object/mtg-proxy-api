@@ -1,10 +1,15 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
 from flask import Flask, request, send_file
 from PIL import Image, ImageFont, ImageDraw
 import numpy as np
 from matplotlib.colors import rgb_to_hsv, hsv_to_rgb
 import io
 
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
+# plt.imshow(color_mask)
+# plt.show()
 
 app = Flask(__name__)
 frame = np.array(Image.open("./assets/frame.png"))
@@ -13,12 +18,70 @@ color_mask = (
     np.array(Image.open("./assets/color_mask.png"))[:, :, 0] == 255
 )  # import matplotlib.pyplot as plt
 title_font = ImageFont.truetype("./assets/TitleFont.ttf", 60)
+body_font = ImageFont.truetype("./assets/BodyFont.ttf", 30)
+body_font_italic = ImageFont.truetype("./assets/BodyFont.ttf", 30)
 
-# plt.imshow(color_mask)
-# plt.show()
+# The maximum length of the render surface for the title/typeline/powerbox
+MAX_RENDERED_TITLE_W = 1200
 
 
-MAX_RENDERED_W = 1200
+def split_lines_for_font(font, text, max_width):
+    words = text.split(" ")
+    lines = []
+    current_line = words[0]
+    for word in words[1:]:
+        # forced newlines
+        if word == "\n" or current_line[-1] == "\n":
+            lines.append(current_line)
+            current_line = ""
+
+        next_line = current_line + " " + word if len(current_line) != 0 else word
+        next_line_width = font.getsize(next_line)[0]
+
+        if next_line_width > max_width:
+            lines.append(current_line)
+            current_line = word
+        else:
+            current_line = next_line
+
+    if len(current_line):
+        lines.append(current_line)
+
+    return lines
+
+
+def render_body_text(image_arr, text, x, y, max_width, max_height):
+    font = body_font
+    line_height = 30
+    lines = split_lines_for_font(body_font, text, max_width)
+
+    rendered_text = Image.new(
+        "RGBA", (max_width, line_height * len(lines)), (0, 0, 0, 0)
+    )
+    draw = ImageDraw.Draw(rendered_text)
+    for i, line in enumerate(lines):
+        draw.text((0, line_height * i), line, (0, 0, 0), font=font)
+
+    rendered_text_arr = np.array(rendered_text)
+    composite_alpha(rendered_text_arr, image_arr, x, y)
+
+
+def prep_body_text(text):
+    text = text.encode("utf-8")
+    text = text.replace("--", "—")  # em dash
+    text = text.replace("{bull}", "•")  # bullet
+
+    return text
+
+
+def composite_alpha(source, target, x, y):
+    (h, w, d) = source.shape
+    alpha = (source[:, :, 3] / 255.0).reshape((source.shape[0], source.shape[1], 1))
+    # if target_h != h:
+    #     y += (h - target_h) /
+    target[y : y + h, x : x + w, :] = (source * (alpha)) + (
+        target[y : y + h, x : x + w, :] * (1 - alpha)
+    )
 
 
 def render_title_font(image_arr, name, x, y, max_w, h, centered=False):
@@ -26,27 +89,18 @@ def render_title_font(image_arr, name, x, y, max_w, h, centered=False):
         max_w = image_arr.shape[1] - x
     # render @2x and resize down to simulate font antialiasing
     rendered_size = title_font.getsize(name)
-    w = min(MAX_RENDERED_W, rendered_size[0] / 2)
+    w = min(MAX_RENDERED_TITLE_W, rendered_size[0] / 2)
     target_w = min(w, max_w)
     target_h = int(h * 1.0 * target_w / w)
     if centered:
         x = x - target_w / 2
-    print(w, target_w, target_h)
     img = Image.new("RGBA", (w * 2, h * 2), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
     draw.text((0, 0), name, (0, 0, 0), font=title_font)
     img = img.resize((target_w, target_h), Image.ANTIALIAS)
-    print(img.width, img.height, ":", target_w, target_h)
     rendered_text = np.array(img)
     # alpha blend the text onto the base image
-    alpha = (rendered_text[:, :, 3] / 255.0).reshape(
-        (rendered_text.shape[0], rendered_text.shape[1], 1)
-    )
-    # if target_h != h:
-    #     y += (h - target_h) /
-    image_arr[y : y + target_h, x : x + target_w, :] = (rendered_text * (alpha)) + (
-        image_arr[y : y + target_h, x : x + target_w, :] * (1 - alpha)
-    )
+    composite_alpha(rendered_text, image_arr, x, y)
 
 
 def tint_image(image, color):
@@ -106,11 +160,16 @@ def hello():
     # render typeline
     render_title_font(generated_image, typeline, 60, 600, 600, 50)
 
+    # render p/t box
     if power is not None and toughness is not None:
         power_string = power + "/" + toughness
         render_title_font(
             generated_image, power_string, 640, 945, 500, 50, centered=True
         )
+
+    # render body text
+    if body:
+        render_body_text(generated_image, prep_body_text(body), 58, 655, 628, 300)
 
     # encode the response and add it
     img = Image.fromarray(generated_image, "RGBA")
