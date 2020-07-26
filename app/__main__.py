@@ -33,7 +33,7 @@ color_mask = (
     np.array(Image.open("./assets/color_mask.png"))[:, :, 0] == 255
 )  # import matplotlib.pyplot as plt
 color_mask_inverse = color_mask == False
-title_font = ImageFont.truetype("./assets/TitleFont.ttf", 60)
+title_font = ImageFont.truetype("./assets/TitleFont.ttf", 70)
 body_font = ImageFont.truetype("./assets/BodyFont.ttf", 30)
 body_font_italic = ImageFont.truetype("./assets/BodyFont.ttf", 30)
 mana_symbols_dict = load_images_dir("./assets/mana")
@@ -293,10 +293,10 @@ async def card(request):
             60,  # y
         )
 
-        render_title_font(generated_image, name, 60, 68, 620 - mana_texture_width, 50)
+        render_title_font(generated_image, name, 60, 65, 620 - mana_texture_width, 50)
     else:
         # render title
-        render_title_font(generated_image, name, 60, 68, 620, 50)
+        render_title_font(generated_image, name, 60, 65, 620, 50)
 
     # render typeline
     render_title_font(generated_image, typeline, 60, 600, 620, 50)
@@ -313,7 +313,7 @@ async def card(request):
         render_body_text(generated_image, prep_body_text(body), 58, 655, 628, 300)
 
     # set image url
-    if img_url and img_url != 'undefined':
+    if img_url and img_url != "undefined":
         loaded_image = await load_image_url(img_url)
         if loaded_image.mode != "RGBA":
             loaded_image = loaded_image.convert("RGBA")
