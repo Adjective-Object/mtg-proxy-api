@@ -218,13 +218,14 @@ def tint_image(image, color):
         colors[color_mask, 2] *= 0.7
         image[:, :, :3] = hsv_to_rgb(colors)
         return image
-    else:
+    elif color == "l":
         # fallback when there is NO color identity.
         # is this a land??
         image[:, :, :3][color_mask] = image[:, :, :3][color_mask] * np.array(
             [[[0.7, 0.6, 0.6]]]
         )
         return image
+    return image
 
 
 async def load_image_url(img_url):
@@ -263,7 +264,7 @@ def fill_box(destination, source_img, x, y, w, h):
 
 @app.route("/card")
 async def card(request):
-    color = request.args.get("color", default="w")
+    color = request.args.get("color", default="l")
     name = request.args.get("name", default="[No Name]")
     img_url = request.args.get("img_url", default=None)
     cost = request.args.get("cost", default="")
