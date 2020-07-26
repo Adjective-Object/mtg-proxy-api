@@ -213,12 +213,18 @@ def tint_image(image, color):
         )
         return image
     elif color == "c":
-        colors = rgb_to_hsv(image[color_mask][:, :3])
-        colors[:, 1] = 0
-        shape = (image.shape[0], image.shape[1], 3)
-        image[color_mask, :3] = hsv_to_rgb(colors)
+        colors = rgb_to_hsv(image[:, :, :3])
+        colors[:, :, 1] = 0
+        colors[color_mask, 2] *= 0.7
+        image[:, :, :3] = hsv_to_rgb(colors)
         return image
-    return image
+    else:
+        # fallback when there is NO color identity.
+        # is this a land??
+        image[:, :, :3][color_mask] = image[:, :, :3][color_mask] * np.array(
+            [[[0.7, 0.6, 0.6]]]
+        )
+        return image
 
 
 async def load_image_url(img_url):
