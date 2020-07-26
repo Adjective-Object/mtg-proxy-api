@@ -29,10 +29,10 @@ def load_images_dir(basedir):
 app = Sanic(__name__)
 frame = np.array(Image.open("./assets/frame.png"))
 powerbox = np.array(Image.open("./assets/powerbox.png"))
-color_mask = (
-    np.array(Image.open("./assets/color_mask.png"))[:, :, 0] == 255
-)  # import matplotlib.pyplot as plt
-color_mask_inverse = color_mask == False
+color_mask = np.array(Image.open("./assets/color_mask.png"))[:, :, 0] == 255
+color_mask_no_power = (
+    np.array(Image.open("./assets/color_mask_no_power.png"))[:, :, 0] == 255
+)
 title_font = ImageFont.truetype("./assets/TitleFont.ttf", 70)
 body_font = ImageFont.truetype("./assets/BodyFont.ttf", 30)
 body_font_italic = ImageFont.truetype("./assets/BodyFont.ttf", 30)
@@ -78,7 +78,6 @@ def render_mana_symbols(mana_symbol_string):
             if lookup_key in mana_symbols_dict
             else mana_symbols_dict["UNKNOWN"]
         )
-        print("AHAHAHHAHA", lookup_key, type(symbol_img))
         mana_texture[0:, x : x + MANA_SYMBOL_SIZE, :] = symbol_img[
             0:MANA_SYMBOL_SIZE, 0:MANA_SYMBOL_SIZE, :
         ]
@@ -169,59 +168,60 @@ def render_title_font(image_arr, name, x, y, max_w, h, centered=False):
     composite_alpha(rendered_text, image_arr, x, y)
 
 
-def tint_image(image, color):
+def tint_image(image, color, frame_mask):
+    frame_mask_inverse = frame_mask != True
     if color == "w":
         return image
     elif color == "u":
-        image[:, :, :3][color_mask] = image[:, :, :3][color_mask] * np.array(
+        image[:, :, :3][frame_mask] = image[:, :, :3][frame_mask] * np.array(
             [[[0.33, 0.59, 0.97]]]
         )
-        image[:, :, :3][color_mask_inverse] = image[:, :, :3][
-            color_mask_inverse
+        image[:, :, :3][frame_mask_inverse] = image[:, :, :3][
+            frame_mask_inverse
         ] * np.array([[[0.9, 0.9, 1]]])
         return image
     elif color == "b":
-        image[:, :, :3][color_mask] = image[:, :, :3][color_mask] * np.array(
+        image[:, :, :3][frame_mask] = image[:, :, :3][frame_mask] * np.array(
             [[[0.3, 0.3, 0.3]]]
         )
-        image[:, :, :3][color_mask_inverse] = image[:, :, :3][
-            color_mask_inverse
+        image[:, :, :3][frame_mask_inverse] = image[:, :, :3][
+            frame_mask_inverse
         ] * np.array([[[0.9, 0.9, 0.9]]])
         return image
     elif color == "r":
-        image[:, :, :3][color_mask] = image[:, :, :3][color_mask] * np.array(
+        image[:, :, :3][frame_mask] = image[:, :, :3][frame_mask] * np.array(
             [[[0.96, 0.41, 0.35]]]
         )
-        image[:, :, :3][color_mask_inverse] = image[:, :, :3][
-            color_mask_inverse
+        image[:, :, :3][frame_mask_inverse] = image[:, :, :3][
+            frame_mask_inverse
         ] * np.array([[[1, 0.9, 0.9]]])
         return image
     elif color == "g":
-        image[:, :, :3][color_mask] = image[:, :, :3][color_mask] * np.array(
+        image[:, :, :3][frame_mask] = image[:, :, :3][frame_mask] * np.array(
             [[[0.43, 0.64, 0.34]]]
         )
-        image[:, :, :3][color_mask_inverse] = image[:, :, :3][
-            color_mask_inverse
+        image[:, :, :3][frame_mask_inverse] = image[:, :, :3][
+            frame_mask_inverse
         ] * np.array([[[0.9, 1, 0.9]]])
         return image
     elif color == "multi":
-        image[:, :, :3][color_mask] = image[:, :, :3][color_mask] * np.array(
+        image[:, :, :3][frame_mask] = image[:, :, :3][frame_mask] * np.array(
             [[[0.97, 0.93, 0.6]]]
         )
-        image[:, :, :3][color_mask_inverse] = image[:, :, :3][color_mask_inverse] * np.array(
-            [[[1, 1, 0.9]]]
-        )
+        image[:, :, :3][frame_mask_inverse] = image[:, :, :3][
+            frame_mask_inverse
+        ] * np.array([[[1, 1, 0.9]]])
         return image
     elif color == "c":
         colors = rgb_to_hsv(image[:, :, :3])
         colors[:, :, 1] = 0
-        colors[color_mask, 2] *= 0.7
+        colors[frame_mask, 2] *= 0.7
         image[:, :, :3] = hsv_to_rgb(colors)
         return image
     elif color == "l":
         # fallback when there is NO color identity.
         # is this a land??
-        image[:, :, :3][color_mask] = image[:, :, :3][color_mask] * np.array(
+        image[:, :, :3][frame_mask] = image[:, :, :3][frame_mask] * np.array(
             [[[0.7, 0.6, 0.6]]]
         )
         return image
@@ -275,12 +275,19 @@ async def card(request):
 
     # add power box if there is a power / toughness
     generated_image = np.copy(frame)
+    frame_and_pinline_mask = color_mask
     if power is not None and toughness is not None:
         powerdims = powerbox.shape
         generated_image[-powerdims[0] :, -powerdims[1] :, -powerdims[2] :] = powerbox
+    else:
+        frame_and_pinline_mask = np.copy(color_mask)
+        color_mask_dims = color_mask_no_power.shape
+        frame_and_pinline_mask[
+            -color_mask_dims[0] :, -color_mask_dims[1] :
+        ] = color_mask_no_power
 
     # tint the frame
-    tint_image(generated_image, color)
+    tint_image(generated_image, color, frame_and_pinline_mask)
 
     if len(cost):
         # render mana cost and offset title
