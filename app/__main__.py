@@ -313,7 +313,7 @@ async def card(request):
         render_body_text(generated_image, prep_body_text(body), 58, 655, 628, 300)
 
     # set image url
-    if img_url:
+    if img_url and img_url != 'undefined':
         loaded_image = await load_image_url(img_url)
         if loaded_image.mode != "RGBA":
             loaded_image = loaded_image.convert("RGBA")
