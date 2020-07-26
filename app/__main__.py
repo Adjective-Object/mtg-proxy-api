@@ -87,7 +87,7 @@ def render_mana_symbols(mana_symbol_string):
 
 
 def split_lines_for_font(font, text, max_width):
-    words = [x for x in text.replace("\n", " \n ").split(" ") if len(x)]
+    words = [x for x in text.replace("\n", "\n ").split(" ") if len(x)]
     lines = []
     current_line = words[0]
     for word in words[1:]:
@@ -110,7 +110,7 @@ def split_lines_for_font(font, text, max_width):
     if len(current_line) > 0:
         lines.append(current_line)
 
-    return [line.replace("\n", "") for line in lines if line != "\n"]
+    return [line.replace("\n", "") for line in lines]
 
 
 def render_body_text(image_arr, text, x, y, max_width, max_height):
