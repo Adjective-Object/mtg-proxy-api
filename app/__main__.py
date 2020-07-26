@@ -317,7 +317,16 @@ async def card(request):
 
     # render body text
     if body:
-        render_body_text(generated_image, prep_body_text(body), 58, 655, 628, 300)
+        body_box = [58, 655, 628, 300]
+        padding = 6
+        render_body_text(
+            generated_image,
+            prep_body_text(body),
+            body_box[0] + padding,
+            body_box[1] + padding,
+            body_box[2] - padding * 2,
+            body_box[3] - padding * 2,
+        )
 
     # set image url
     if img_url and img_url != "undefined":
