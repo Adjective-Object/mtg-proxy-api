@@ -208,7 +208,7 @@ def tint_image(image, color):
         image[:, :, :3][color_mask] = image[:, :, :3][color_mask] * np.array(
             [[[0.97, 0.93, 0.6]]]
         )
-        image[:, :, :3][color_mask] = image[:, :, :3][color_mask] * np.array(
+        image[:, :, :3][color_mask_inverse] = image[:, :, :3][color_mask_inverse] * np.array(
             [[[1, 1, 0.9]]]
         )
         return image
