@@ -131,7 +131,6 @@ def render_body_text(image_arr, text, x, y, max_width, max_height):
 
 
 def prep_body_text(text):
-    text = text.encode("utf-8")
     text = text.replace("--", "—")  # em dash
     text = text.replace("{bull}", "•")  # bullet
 
