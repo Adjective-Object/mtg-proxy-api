@@ -327,5 +327,6 @@ async def card(request):
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=os.environ["DEBUG"] == "true")
+    is_debug = "DEBUG" in os.environ and os.environ["DEBUG"] == "true"
+    app.run(host="0.0.0.0", port=5000, debug=is_debug)
 
