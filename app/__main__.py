@@ -1,10 +1,13 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-from flask import Flask, request, send_file
+from sanic import Sanic, response
 from PIL import Image, ImageFont, ImageDraw
-import numpy as np
 from matplotlib.colors import rgb_to_hsv, hsv_to_rgb
+from aiohttp import ClientSession
+import asyncio
+from hashlib import sha512
+import numpy as np
 import io
 import os
 
@@ -23,7 +26,7 @@ def load_images_dir(basedir):
     return images
 
 
-app = Flask(__name__)
+app = Sanic(__name__)
 frame = np.array(Image.open("./assets/frame.png"))
 powerbox = np.array(Image.open("./assets/powerbox.png"))
 color_mask = (
@@ -34,11 +37,12 @@ title_font = ImageFont.truetype("./assets/TitleFont.ttf", 60)
 body_font = ImageFont.truetype("./assets/BodyFont.ttf", 30)
 body_font_italic = ImageFont.truetype("./assets/BodyFont.ttf", 30)
 mana_symbols_dict = load_images_dir("./assets/mana")
-MANA_SYMBOL_SIZE = mana_symbols_dict[mana_symbols_dict.keys()[0]].shape[0]
+MANA_SYMBOL_SIZE = mana_symbols_dict[next(iter(mana_symbols_dict))].shape[0]
 MANA_SYMBOL_PADDING = 6
 
 # The maximum length of the render surface for the title/typeline/powerbox
 MAX_RENDERED_TITLE_W = 1200
+IMG_DISK_CACHE = "./img_cache"
 
 
 def pop_symbol(possible_mana_str):
@@ -152,11 +156,11 @@ def render_title_font(image_arr, name, x, y, max_w, h, centered=False):
         max_w = image_arr.shape[1] - x
     # render @2x and resize down to simulate font antialiasing
     rendered_size = title_font.getsize(name)
-    w = min(MAX_RENDERED_TITLE_W, rendered_size[0] / 2)
+    w = min(MAX_RENDERED_TITLE_W, rendered_size[0] // 2)
     target_w = min(w, max_w)
-    target_h = int(h * 1.0 * target_w / w)
+    target_h = int(h * 1.0 * target_w // w)
     if centered:
-        x = x - target_w / 2
+        x = x - target_w // 2
     img = Image.new("RGBA", (w * 2, h * 2), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
     draw.text((0, 0), name, (0, 0, 0), font=title_font)
@@ -171,7 +175,7 @@ def tint_image(image, color):
         return image
     elif color == "u":
         image[:, :, :3][color_mask] = image[:, :, :3][color_mask] * np.array(
-            [[[0.43, 0.67, 0.97]]]
+            [[[0.33, 0.59, 0.97]]]
         )
         image[:, :, :3][color_mask_inverse] = image[:, :, :3][
             color_mask_inverse
@@ -195,7 +199,7 @@ def tint_image(image, color):
         return image
     elif color == "g":
         image[:, :, :3][color_mask] = image[:, :, :3][color_mask] * np.array(
-            [[[0.43, 0.80, 0.34]]]
+            [[[0.43, 0.64, 0.34]]]
         )
         image[:, :, :3][color_mask_inverse] = image[:, :, :3][
             color_mask_inverse
@@ -218,8 +222,42 @@ def tint_image(image, color):
     return image
 
 
+async def load_image_url(img_url):
+    if not os.path.exists(IMG_DISK_CACHE):
+        os.makedirs(IMG_DISK_CACHE)
+
+    hashed_url = sha512(img_url.encode("utf-8")).hexdigest()
+    _, ext = os.path.splitext(img_url)
+
+    local_path = os.path.join(IMG_DISK_CACHE, hashed_url + "." + ext)
+    if os.path.exists(local_path):
+        return Image.open(local_path)
+
+    async with ClientSession() as session:
+        response = await session.request(method="GET", url=img_url)
+        # write local file in 1kb blocks
+        with open(local_path, "wb") as fd:
+            async for data in response.content.iter_chunked(1024):
+                fd.write(data)
+
+    return Image.open(local_path)
+
+
+def fill_box(destination, source_img, x, y, w, h):
+    im_w, im_h = source_img.size
+    ratio = max(w / im_w, h / im_h)
+    dest_size = (int(im_w * ratio), int(im_h * ratio))
+    off_x = dest_size[0] - w
+    off_y = dest_size[1] - h
+    print(im_w, im_h, ratio, off_x, off_y, w, h)
+    img = source_img.resize(dest_size, Image.ANTIALIAS)
+    destination[y : y + h, x : x + w] = np.array(img)[
+        off_y : off_y + h, off_x : off_x + w
+    ]
+
+
 @app.route("/card")
-def hello():
+async def card(request):
     color = request.args.get("color", default="w")
     name = request.args.get("name", default="[No Name]")
     img_url = request.args.get("img_url", default=None)
@@ -268,14 +306,26 @@ def hello():
     if body:
         render_body_text(generated_image, prep_body_text(body), 58, 655, 628, 300)
 
+    # set image url
+    if img_url:
+        loaded_image = await load_image_url(img_url)
+        if loaded_image.mode != "RGBA":
+            loaded_image = loaded_image.convert("RGBA")
+        fill_box(generated_image, loaded_image, 57, 117, 631, 461)
+        print("loaded", loaded_image)
+
     # encode the response and add it
     img = Image.fromarray(generated_image, "RGBA")
     pngBuffer = io.BytesIO()
     img.save(pngBuffer, format="PNG")
     pngBuffer.seek(0)
-    return send_file(pngBuffer, mimetype="image/png",)
+
+    async def streaming_fn(response):
+        await response.write(pngBuffer.getbuffer())
+
+    return response.stream(streaming_fn, content_type="image/png")
 
 
 if __name__ == "__main__":
-    app.run()
+    app.run(host="0.0.0.0", port=5000, debug=os.environ["DEBUG"] == "true")
 
