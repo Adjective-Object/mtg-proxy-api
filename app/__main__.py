@@ -35,7 +35,7 @@ color_mask_no_power = (
 )
 title_font = ImageFont.truetype("./assets/TitleFont.ttf", 70)
 body_font = ImageFont.truetype("./assets/BodyFont.ttf", 30)
-body_font_italic = ImageFont.truetype("./assets/BodyFont.ttf", 30)
+body_font_small = ImageFont.truetype("./assets/BodyFont.ttf", 25)
 mana_symbols_dict = load_images_dir("./assets/mana")
 MANA_SYMBOL_SIZE = mana_symbols_dict[next(iter(mana_symbols_dict))].shape[0]
 MANA_SYMBOL_PADDING = 6
@@ -115,8 +115,14 @@ def split_lines_for_font(font, text, max_width):
 def render_body_text(image_arr, text, x, y, max_width, max_height):
     font = body_font
     line_height = 30
-    lines = split_lines_for_font(body_font, text, max_width)
-    print(lines)
+    lines = split_lines_for_font(font, text, max_width)
+
+    # if it would be too large, use the smaller
+    # font instead.
+    if line_height * len(lines) > max_height:
+        font = body_font_small
+        line_height = 25
+        lines = split_lines_for_font(font, text, max_width)
 
     rendered_text = Image.new(
         "RGBA", (max_width, line_height * len(lines)), (0, 0, 0, 0)
@@ -129,9 +135,19 @@ def render_body_text(image_arr, text, x, y, max_width, max_height):
     composite_alpha(rendered_text_arr, image_arr, x, y)
 
 
-def prep_body_text(text):
+def prep_body_text(text, name):
     text = text.replace("--", "—")  # em dash
+    text = text.replace("{bull}:", "•")  # bullet
     text = text.replace("{bull}", "•")  # bullet
+    # replace CARDNAME with the name of the card.
+    #
+    # For names of form "Proper Name, Descriptor",
+    # we use the full name for the first appearance, and
+    # only use the proper name for the remainder
+    short_name_idx = name.find(",")
+    short_name = name if short_name_idx == -1 else name[0:short_name_idx]
+    text = text.replace("CARDNAME", name, 1)  # name
+    text = text.replace("CARDNAME", short_name)  # name
 
     return text
 
@@ -321,7 +337,7 @@ async def card(request):
         padding = 6
         render_body_text(
             generated_image,
-            prep_body_text(body),
+            prep_body_text(body, name),
             body_box[0] + padding,
             body_box[1] + padding,
             body_box[2] - padding * 2,
