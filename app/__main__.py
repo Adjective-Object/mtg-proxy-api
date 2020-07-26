@@ -269,8 +269,8 @@ def fill_box(destination, source_img, x, y, w, h):
     im_w, im_h = source_img.size
     ratio = max(w / im_w, h / im_h)
     dest_size = (int(im_w * ratio), int(im_h * ratio))
-    off_x = dest_size[0] - w
-    off_y = dest_size[1] - h
+    off_x = (dest_size[0] - w) // 2
+    off_y = (dest_size[1] - h) // 2
     print(im_w, im_h, ratio, off_x, off_y, w, h)
     img = source_img.resize(dest_size, Image.ANTIALIAS)
     destination[y : y + h, x : x + w] = np.array(img)[
