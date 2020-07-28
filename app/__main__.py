@@ -120,7 +120,7 @@ def render_mana_symbols(mana_symbol_string):
     return mana_texture
 
 
-SYMBOL_REGEX = r"\{[^\s,.]+\}"
+SYMBOL_REGEX = r"\{[^\s,.\{\}]+\}"
 
 
 def get_text_width(font, line_text, symbol_w):
