@@ -39,6 +39,7 @@ title_font = ImageFont.truetype("./assets/TitleFont.ttf", 70)
 body_font = ImageFont.truetype("./assets/BodyFont.ttf", 30)
 body_font_small = ImageFont.truetype("./assets/BodyFont.ttf", 25)
 mana_symbols_dict = load_images_dir("./assets/mana")
+rarity_dict = load_images_dir("./assets/setsymbol")
 MANA_SYMBOL_SIZE = mana_symbols_dict[next(iter(mana_symbols_dict))].shape[0]
 MANA_SYMBOL_PADDING = 6
 
@@ -78,6 +79,14 @@ def pop_symbol(possible_mana_str):
         return (possible_mana_str[1:end_idx], possible_mana_str[end_idx + 1 :])
 
     return (None, possible_mana_str)
+
+
+def lookup_rarity_image(symbol_name):
+    lookup_key = symbol_name.upper()[0]
+    rarity_img = (
+        rarity_dict[lookup_key] if lookup_key in rarity_dict else rarity_dict["UNKNOWN"]
+    )
+    return rarity_img
 
 
 def lookup_mana_image(symbol_name):
@@ -353,6 +362,7 @@ async def card(request):
     color = request.args.get("color", default="l")
     name = request.args.get("name", default="[No Name]")
     img_url = request.args.get("img_url", default=None)
+    rarity = request.args.get("rarity", default=None)
     cost = request.args.get("cost", default="")
     typeline = request.args.get("typeline", default="[No Type]")
     body = request.args.get("body", default="")
@@ -421,6 +431,10 @@ async def card(request):
             loaded_image = loaded_image.convert("RGBA")
         fill_box(generated_image, loaded_image, 57, 117, 631, 461)
         print("loaded", loaded_image)
+
+    if rarity is not None:
+        rarity_img = lookup_rarity_image(rarity)
+        composite_alpha(rarity_img, generated_image, 650, 597)
 
     # encode the response and add it
     img = Image.fromarray(generated_image, "RGBA")
