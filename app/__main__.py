@@ -4,12 +4,14 @@
 from sanic import Sanic, response
 from PIL import Image, ImageFont, ImageDraw
 from matplotlib.colors import rgb_to_hsv, hsv_to_rgb
+from itertools import chain, zip_longest
 from aiohttp import ClientSession
 import asyncio
 from hashlib import sha512
 import numpy as np
 import io
 import os
+import re
 
 # import matplotlib.pyplot as plt
 # plt.imshow(color_mask)
@@ -42,7 +44,26 @@ MANA_SYMBOL_PADDING = 6
 
 # The maximum length of the render surface for the title/typeline/powerbox
 MAX_RENDERED_TITLE_W = 1200
+# Location where images are stored on local disk
 IMG_DISK_CACHE = "./img_cache"
+
+
+def symbol_size(font):
+    if font is body_font:
+        return 27
+    elif font is body_font_small:
+        return 21
+    else:
+        return 12
+
+
+def symbol_padding(font):
+    if font is body_font:
+        return 6
+    elif font is body_font_small:
+        return 5
+    else:
+        return 2
 
 
 def pop_symbol(possible_mana_str):
@@ -59,6 +80,16 @@ def pop_symbol(possible_mana_str):
     return (None, possible_mana_str)
 
 
+def lookup_mana_image(symbol_name):
+    lookup_key = symbol_name.upper().replace("/", "")
+    symbol_img = (
+        mana_symbols_dict[lookup_key]
+        if lookup_key in mana_symbols_dict
+        else mana_symbols_dict["UNKNOWN"]
+    )
+    return symbol_img
+
+
 def render_mana_symbols(mana_symbol_string):
     symbols = []
     symbol, mana_symbol_string = pop_symbol(mana_symbol_string)
@@ -72,17 +103,22 @@ def render_mana_symbols(mana_symbol_string):
     )
     for i, symbol_name in enumerate(symbols):
         x = i * (MANA_SYMBOL_SIZE + MANA_SYMBOL_PADDING)
-        lookup_key = symbol_name.upper().replace("/", "")
-        symbol_img = (
-            mana_symbols_dict[lookup_key]
-            if lookup_key in mana_symbols_dict
-            else mana_symbols_dict["UNKNOWN"]
-        )
+        symbol_img = lookup_mana_image(symbol_name)
         mana_texture[0:, x : x + MANA_SYMBOL_SIZE, :] = symbol_img[
             0:MANA_SYMBOL_SIZE, 0:MANA_SYMBOL_SIZE, :
         ]
 
     return mana_texture
+
+
+SYMBOL_REGEX = r"\{[^\s,.]+\}"
+
+
+def get_text_width(font, line_text, symbol_w):
+    occurrences = re.findall(SYMBOL_REGEX, line_text)
+    if len(occurrences):
+        line_text = re.sub(SYMBOL_REGEX, "", line_text)
+    return font.getsize(line_text)[0] + len(occurrences) * symbol_w
 
 
 def split_lines_for_font(font, text, max_width):
@@ -96,7 +132,9 @@ def split_lines_for_font(font, text, max_width):
             current_line = ""
 
         next_line = current_line + " " + word if len(current_line) != 0 else word
-        next_line_width = font.getsize(next_line)[0]
+        next_line_width = get_text_width(
+            font, next_line, symbol_size(font) + symbol_padding(font) * 2
+        )
 
         if next_line_width > max_width:
             lines.append(current_line)
@@ -104,12 +142,14 @@ def split_lines_for_font(font, text, max_width):
         else:
             current_line = next_line
 
-    print(lines, current_line)
-
     if len(current_line) > 0:
         lines.append(current_line)
 
     return [line.replace("\n", "") for line in lines]
+
+
+def intercalate(a, b):
+    return chain.from_iterable(zip_longest(b, a))
 
 
 def render_body_text(image_arr, text, x, y, max_width, max_height):
@@ -129,7 +169,37 @@ def render_body_text(image_arr, text, x, y, max_width, max_height):
     )
     draw = ImageDraw.Draw(rendered_text)
     for i, line in enumerate(lines):
-        draw.text((0, line_height * i), line, (0, 0, 0), font=font)
+        line_x = 0
+        symbols = re.findall(SYMBOL_REGEX, line)
+        sublines = re.split(SYMBOL_REGEX, line)
+        intercalated_lines = list(enumerate(intercalate(symbols, sublines)))
+        for j, subline in intercalated_lines:
+            if subline is None or len(subline) == 0:
+                continue
+
+            if re.match(SYMBOL_REGEX, subline):
+                # draw a symbol
+                line_x += symbol_padding(font)
+                line_symbol_size = symbol_size(font)
+
+                symbol_y = y + line_height * i + (line_height - line_symbol_size) // 2
+                symbol_x = x + line_x
+
+                symbol_img = lookup_mana_image(subline[1:-1])
+                symbol_img = np.array(
+                    Image.fromarray(symbol_img).resize(
+                        (line_symbol_size, line_symbol_size)  # , Image.ANTIALIAS
+                    )
+                )
+                composite_alpha(symbol_img, image_arr, symbol_x, symbol_y)
+
+                line_x += line_symbol_size + symbol_padding(x)
+            else:
+                # draw text
+                draw.text((line_x, line_height * i), subline, (0, 0, 0), font=font)
+                if i != len(sublines) - 1:
+                    w = font.getsize(subline)[0]
+                    line_x += w
 
     rendered_text_arr = np.array(rendered_text)
     composite_alpha(rendered_text_arr, image_arr, x, y)
