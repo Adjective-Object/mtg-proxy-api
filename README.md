@@ -1,8 +1,8 @@
 # mtg-proxy-api
 
-## Setup
+An API that will generate easy and incorrect MTG proxies for you.
 
-An API that will generate easy MTG proxies for you.
+## Setup
 
 ```sh
 # setup and dev
