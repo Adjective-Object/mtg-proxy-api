@@ -177,8 +177,24 @@ def render_body_text(image_arr, text, x, y, max_width, max_height):
         "RGBA", (max_width, line_height * len(lines)), (0, 0, 0, 0)
     )
     draw = ImageDraw.Draw(rendered_text)
+
+    initial_y = 0
+    initial_x = 0
+    # center text y if there is only one line
+    if len(lines) == 1:
+        initial_y = int(max_height / 2 - line_height / 2)
+        # center x
+        line = lines[0]
+        symbols = re.findall(SYMBOL_REGEX, line)
+        sublines = re.split(SYMBOL_REGEX, line)
+        symbols_width = len(symbols) * (symbol_size(font) + symbol_padding(font) * 2)
+        text_width = sum([font.getsize(subline)[0] for subline in sublines])
+        initial_x = (max_width - (text_width + symbols_width)) // 2
+
+    print(initial_y, initial_x)
+
     for i, line in enumerate(lines):
-        line_x = 0
+        line_x = initial_x
         symbols = re.findall(SYMBOL_REGEX, line)
         sublines = re.split(SYMBOL_REGEX, line)
         intercalated_lines = list(enumerate(intercalate(symbols, sublines)))
@@ -191,7 +207,12 @@ def render_body_text(image_arr, text, x, y, max_width, max_height):
                 line_x += symbol_padding(font)
                 line_symbol_size = symbol_size(font)
 
-                symbol_y = y + line_height * i + (line_height - line_symbol_size) // 2
+                symbol_y = (
+                    y
+                    + i * line_height
+                    + initial_y
+                    + (line_height - line_symbol_size) // 2
+                )
                 symbol_x = x + line_x
 
                 symbol_img = lookup_mana_image(subline[1:-1])
@@ -205,13 +226,13 @@ def render_body_text(image_arr, text, x, y, max_width, max_height):
                 line_x += line_symbol_size + symbol_padding(x)
             else:
                 # draw text
-                draw.text((line_x, line_height * i), subline, (0, 0, 0), font=font)
+                draw.text((line_x, i * line_height), subline, (0, 0, 0), font=font)
                 if i != len(sublines) - 1:
                     w = font.getsize(subline)[0]
                     line_x += w
 
     rendered_text_arr = np.array(rendered_text)
-    composite_alpha(rendered_text_arr, image_arr, x, y)
+    composite_alpha(rendered_text_arr, image_arr, x, y + initial_y)
 
 
 def prep_body_text(text, name):
