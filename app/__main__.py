@@ -384,7 +384,7 @@ async def card(request):
     img_url = request.args.get("img_url", default=None)
     rarity = request.args.get("rarity", default=None)
     cost = request.args.get("cost", default="")
-    typeline = request.args.get("typeline", default="[No Type]")
+    typeline = request.args.getlist("typeline", default="[No Type]")
     body = request.args.get("body", default="")
     power = request.args.get("power", default=None)
     toughness = request.args.get("toughness", default=None)
@@ -422,7 +422,8 @@ async def card(request):
         render_title_font(generated_image, name, 60, 65, 620, 50)
 
     # render typeline
-    render_title_font(generated_image, typeline, 60, 600, 620, 50)
+    type_text = " — ".join([t for t in typeline if len(t) != 0])
+    render_title_font(generated_image, type_text, 60, 600, 620, 50)
 
     # render p/t box
     if power is not None and toughness is not None:
