@@ -227,9 +227,8 @@ def render_body_text(image_arr, text, x, y, max_width, max_height):
             else:
                 # draw text
                 draw.text((line_x, i * line_height), subline, (0, 0, 0), font=font)
-                if i != len(sublines) - 1:
-                    w = font.getsize(subline)[0]
-                    line_x += w
+                w = font.getsize(subline)[0]
+                line_x += w
 
     rendered_text_arr = np.array(rendered_text)
     composite_alpha(rendered_text_arr, image_arr, x, y + initial_y)
